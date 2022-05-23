@@ -7,17 +7,15 @@ DELIMITER $$
 
   IN `id` char(36) ,
   IN `user_id` char(36) ,
-  IN `first_name` varchar(100) ,
+  IN `name` varchar(100) ,
   IN `surname` varchar(100) ,
-  IN `middle_name` varchar(100) ,
   IN `email` varchar(50) ,
   IN `home_number` varchar(12) ,
   IN `cell_number` varchar(12) 
 
 )
 BEGIN
-	IF first_name NOT REGEXP '[:alpha:]' 
-		OR middle_name NOT REGEXP '[:alpha:]'
+	IF `name` NOT REGEXP '[:alpha:]' 
 			OR surname NOT REGEXP '[:alpha:]'
     THEN
          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Name cannot contain a number';
@@ -26,18 +24,16 @@ BEGIN
     INSERT INTO `epicentre`.`Contact`
 	(`id`,
 	`user_id`,
-	`first_name`,
+	`name`,
 	`surname`,
-	`middle_name`,
 	`email`,
 	`home_number`,
 	`cell_number`)
 	VALUES
 	(	id,
 		user_id,
-		first_name,
+		name,
 		surname,
-		middle_name,
 		email,
 		home_number,
 		cell_number
@@ -47,25 +43,61 @@ END $$
 
 -- **************************************
 
-DROP PROCEDURE IF EXISTS GetContactList;
+DROP PROCEDURE IF EXISTS GetContacts;
 
-CREATE PROCEDURE GetContactList(
+CREATE PROCEDURE GetContacs(
     IN user_id CHAR(36),
     IN page_offset INT,
     IN page_size INT
+    IN name_filter VARCHAR(50),
+    IN surname_filter VARCHAR(50),
+    IN email_filter VARCHAR(50)
 )
 BEGIN	
-	SELECT 		first_name, 
-				surname,
-				home_number, 
-				cell_number 
-    FROM 		Contact
-    WHERE 		is_deleted = 0
-    ORDER BY 	first_name ASC
-    LIMIT 		page_offset, page_size;
+        SELECT 		id,    
+                    `name`,
+                    surname, 
+                    cell_number 
+        FROM 		Contact
+        WHERE 		is_deleted = 0
+        AND         (
+                        `name` LIKE CONCAT('%', name_filter, '%') 
+                        OR surname LIKE CONCAT('%', surname_filter, '%') 
+                        OR email LIKE CONCAT('%', email_filter, '%')
+                    )
+        ORDER BY 	`name` ASC
+        LIMIT 		page_offset, page_size;
 END$$
 
 -- **************************************
+
+DROP PROCEDURE IF EXISTS GetNotes;
+
+CREATE PROCEDURE GetNotes(
+    IN contact_id CHAR(36),
+    IN page_offset INT,
+    IN page_size INT
+    IN title_filter VARCHAR(50),
+    IN description_filter VARCHAR(50)
+)
+BEGIN	
+        SELECT 		n.id, 
+                    n.title,
+                    n.description
+                    n.date_created,
+        FROM 		Note n
+        INNER JOIN  Contact c ON c.contact_id = n.contact_id
+        WHERE 		n.is_deleted = 0
+        AND         (
+                        title_filter LIKE CONCAT('%', title_filter, '%') 
+                        OR description_filter LIKE CONCAT('%', description_filter, '%') 
+                    )
+        ORDER BY 	n.title ASC
+        LIMIT 		page_offset, page_size;
+END$$
+
+-- **************************************
+
 
 DROP PROCEDURE IF EXISTS CreateUser;
 
@@ -125,7 +157,7 @@ BEGIN
     VALUES
     (
         uuid(),
-        name,
+        `name`,
         email,
         username,
         password      
@@ -150,25 +182,28 @@ CREATE  PROCEDURE CreateNote(
 	description text
 )
 BEGIN
-	IF EXISTS (SELECT id
+	IF NOT EXISTS (SELECT id
 				FROM Contact c
                 WHERE c.id = contact_id AND c.is_deleted = 0)
 	THEN
-		INSERT INTO Note
-		(
-			id,
-			contact_id,
-			title,
-			description
-		)
-		VALUES
-		(
-			id,
-			contact_id,
-			title,
-			description		
-		);
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Could not find contact';
     END IF;
+
+    INSERT INTO Note
+    (
+        id,
+        contact_id,
+        title,
+        description
+    )
+    VALUES
+    (
+        id,
+        contact_id,
+        title,
+        description		
+    );
+   
 END$$
 
 
@@ -189,6 +224,31 @@ END $$
 
 -- **************************************
 
+DROP PROCEDURE IF EXISTS DeleteNotes;
+CREATE PROCEDURE DeleteNotes(IN noteList TEXT)
+BEGIN
+
+  SET @sql = CONCAT('UPDATE Note SET is_deleted = 1 WHERE id IN (', noteList, ')');ent
+  PREPARE query FROM @sql;
+  EXECUTE query;
+  DEALLOCATE PREPARE query;
+
+END
+$$
+
+-- **************************************
+
+DROP PROCEDURE IF EXISTS DeleteContacts;
+CREATE PROCEDURE DeleteContacts(IN contactList TEXT)
+BEGIN
+
+  SET @sql = CONCAT('UPDATE Contact SET is_deleted = 1 WHERE id IN (', contactList, ')');
+  PREPARE query FROM @sql;
+  EXECUTE query;
+  DEALLOCATE PREPARE query;
+
+END
+$$
 
 
 DELIMITER ;
