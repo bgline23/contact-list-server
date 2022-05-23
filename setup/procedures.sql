@@ -48,7 +48,7 @@ DROP PROCEDURE IF EXISTS GetContacts;
 CREATE PROCEDURE GetContacs(
     IN user_id CHAR(36),
     IN page_offset INT,
-    IN page_size INT
+    IN page_size INT,
     IN name_filter VARCHAR(50),
     IN surname_filter VARCHAR(50),
     IN email_filter VARCHAR(50)
@@ -76,7 +76,7 @@ DROP PROCEDURE IF EXISTS GetNotes;
 CREATE PROCEDURE GetNotes(
     IN contact_id CHAR(36),
     IN page_offset INT,
-    IN page_size INT
+    IN page_size INT,
     IN title_filter VARCHAR(50),
     IN description_filter VARCHAR(50)
 )
@@ -228,7 +228,7 @@ DROP PROCEDURE IF EXISTS DeleteNotes;
 CREATE PROCEDURE DeleteNotes(IN noteList TEXT)
 BEGIN
 
-  SET @sql = CONCAT('UPDATE Note SET is_deleted = 1 WHERE id IN (', noteList, ')');ent
+  SET @sql = CONCAT('UPDATE Note SET is_deleted = 1 WHERE id IN (', noteList, ')');
   PREPARE query FROM @sql;
   EXECUTE query;
   DEALLOCATE PREPARE query;
